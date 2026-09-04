@@ -5,30 +5,23 @@ from pathlib import Path
 from typing import Optional
 
 import yt_dlp
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, HttpUrl
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
+from pydantic import BaseModel, HttpUrl
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DOWNLOAD_DIR = BASE_DIR / "downloads"
+STATIC_DIR = BASE_DIR / "app" / "static"
+COOKIE_FILE = BASE_DIR / "cookies.txt"
 
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="Video Downloader API",
     version="1.0.0",
-)
-
-STATIC_DIR = BASE_DIR / "app" / "static"
-
-STATIC_DIR.mkdir(
-    parents=True,
-    exist_ok=True
 )
 
 app.mount(
@@ -36,7 +29,6 @@ app.mount(
     StaticFiles(directory=str(STATIC_DIR)),
     name="static"
 )
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,8 +38,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 jobs = {}
+
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Sec-Fetch-Mode": "navigate",
+}
 
 
 class VideoRequest(BaseModel):
@@ -59,13 +57,23 @@ class JobResponse(BaseModel):
     status: str
 
 
-def get_info(url: str):
+def get_ydl_base_options() -> dict:
     options = {
         "quiet": True,
         "no_warnings": True,
-        "skip_download": True,
         "noplaylist": True,
+        "http_headers": HTTP_HEADERS,
     }
+
+    if COOKIE_FILE.exists():
+        options["cookiefile"] = str(COOKIE_FILE)
+
+    return options
+
+
+def get_info(url: str):
+    options = get_ydl_base_options()
+    options["skip_download"] = True
 
     with yt_dlp.YoutubeDL(options) as ydl:
         return ydl.extract_info(url, download=False)
@@ -101,19 +109,13 @@ def download_video(job_id: str, url: str):
             jobs[job_id]["status"] = "processing"
             jobs[job_id]["progress"] = 100
 
-    options = {
+    options = get_ydl_base_options()
+    options.update({
         "outtmpl": str(output_dir / "%(title)s.%(ext)s"),
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
         "progress_hooks": [progress_hook],
-
-        # ダウンロード形式
         "format": "bestvideo*+bestaudio/best",
-
-        # 必要に応じてMP4へマージ
         "merge_output_format": "mp4",
-    }
+    })
 
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
@@ -137,9 +139,14 @@ def download_video(job_id: str, url: str):
 
 @app.get("/")
 async def root():
-    return FileResponse(
-        STATIC_DIR / "index.html"
-    )
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {
+        "name": "Video Downloader API",
+        "version": "1.0.0",
+        "status": "online",
+    }
 
 
 @app.get("/health")
@@ -223,6 +230,7 @@ async def download_status(job_id: str):
 
         if filename:
             result["download_url"] = f"/api/file/{job_id}"
+            result["stream_url"] = f"/api/stream/{job_id}"
 
     return result
 
@@ -264,6 +272,48 @@ async def download_file(job_id: str):
         filename=path.name,
         media_type="application/octet-stream",
     )
+
+
+@app.get("/api/stream/{job_id}")
+async def stream_file(job_id: str, request: Request):
+    job = jobs.get(job_id)
+
+    if not job or job["status"] != "completed":
+        raise HTTPException(status_code=404, detail="Video not available")
+
+    filename = job.get("filename")
+    if not filename or not Path(filename).exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    path = Path(filename)
+    file_size = path.stat().st_size
+    range_header = request.headers.get("range")
+
+    if range_header:
+        bytes_type, bytes_range = range_header.split("=")
+        start_str, end_str = bytes_range.split("-")
+        start = int(start_str) if start_str else 0
+        end = int(end_str) if end_str else file_size - 1
+
+        if start >= file_size:
+            raise HTTPException(status_code=416, detail="Requested Range Not Satisfiable")
+
+        chunk_size = (end - start) + 1
+
+        def send_bytes():
+            with open(path, "rb") as f:
+                f.seek(start)
+                yield f.read(chunk_size)
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Type": "video/mp4",
+        }
+        return StreamingResponse(send_bytes(), status_code=206, headers=headers)
+
+    return FileResponse(path=str(path), media_type="video/mp4")
 
 
 @app.get("/api/jobs")
