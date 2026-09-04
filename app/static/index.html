@@ -225,6 +225,20 @@
             transition: width .25s;
         }
 
+        .player-container {
+            display: none;
+            margin-top: 20px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        video {
+            width: 100%;
+            max-height: 500px;
+            display: block;
+        }
+
         .download-button {
             display: none;
             margin-top: 18px;
@@ -404,6 +418,17 @@
                         class="status"
                     >
                         準備中...
+                    </div>
+
+                    <div
+                        id="playerContainer"
+                        class="player-container"
+                    >
+                        <video
+                            id="videoPlayer"
+                            controls
+                            playsinline
+                        ></video>
                     </div>
 
                     <a
@@ -745,6 +770,21 @@
                     pollingTimer
                 );
 
+                const playerContainer =
+                    document.getElementById(
+                        "playerContainer"
+                    );
+
+                const videoPlayer =
+                    document.getElementById(
+                        "videoPlayer"
+                    );
+
+                if (data.stream_url) {
+                    videoPlayer.src = data.stream_url;
+                    playerContainer.style.display = "block";
+                }
+
                 const link =
                     document.getElementById(
                         "downloadLink"
@@ -845,6 +885,20 @@
         document.getElementById(
             "progressText"
         ).textContent = "0%";
+
+        const playerContainer =
+            document.getElementById(
+                "playerContainer"
+            );
+
+        const videoPlayer =
+            document.getElementById(
+                "videoPlayer"
+            );
+
+        videoPlayer.pause();
+        videoPlayer.src = "";
+        playerContainer.style.display = "none";
 
         document.getElementById(
             "downloadLink"
