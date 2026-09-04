@@ -9,6 +9,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, HttpUrl
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +22,19 @@ DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI(
     title="Video Downloader API",
     version="1.0.0",
+)
+
+STATIC_DIR = BASE_DIR / "app" / "static"
+
+STATIC_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+app.mount(
+    "/static",
+    StaticFiles(directory=str(STATIC_DIR)),
+    name="static"
 )
 
 
@@ -258,6 +273,11 @@ async def list_jobs():
     return {
         "jobs": jobs
     }
+@app.get("/")
+async def root():
+    return FileResponse(
+        STATIC_DIR / "index.html"
+    )
 
 
 if __name__ == "__main__":
