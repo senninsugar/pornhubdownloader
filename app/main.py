@@ -137,11 +137,9 @@ def download_video(job_id: str, url: str):
 
 @app.get("/")
 async def root():
-    return {
-        "name": "Video Downloader API",
-        "version": "1.0.0",
-        "status": "online",
-    }
+    return FileResponse(
+        STATIC_DIR / "index.html"
+    )
 
 
 @app.get("/health")
@@ -273,11 +271,6 @@ async def list_jobs():
     return {
         "jobs": jobs
     }
-@app.get("/")
-async def root():
-    return FileResponse(
-        STATIC_DIR / "index.html"
-    )
 
 
 if __name__ == "__main__":
