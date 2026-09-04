@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Video Downloader</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(
+                    circle at top,
+                    #18243d 0,
+                    #0b1020 45%,
+                    #060912 100%
+                );
+            color: #ffffff;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
+        }
+
+        .container {
+            width: min(900px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 70px 0;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(
+                135deg,
+                #4f8cff,
+                #7c5cff
+            );
+            font-size: 28px;
+            font-weight: 800;
+            box-shadow:
+                0 15px 45px rgba(79, 140, 255, .25);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(32px, 6vw, 52px);
+            letter-spacing: -1.5px;
+        }
+
+        .subtitle {
+            margin-top: 12px;
+            color: #9ca8c0;
+            font-size: 16px;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, .78);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow:
+                0 25px 80px rgba(0, 0, 0, .35);
+            backdrop-filter: blur(20px);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        input {
+            flex: 1;
+            min-width: 0;
+            height: 54px;
+            padding: 0 18px;
+            border-radius: 14px;
+            border: 1px solid #29344d;
+            outline: none;
+            background: #0a1020;
+            color: white;
+            font-size: 15px;
+            transition: .2s;
+        }
+
+        input:focus {
+            border-color: #4f8cff;
+            box-shadow:
+                0 0 0 3px rgba(79, 140, 255, .12);
+        }
+
+        button {
+            height: 54px;
+            padding: 0 22px;
+            border: 0;
+            border-radius: 14px;
+            cursor: pointer;
+            color: white;
+            background: linear-gradient(
+                135deg,
+                #4f8cff,
+                #6b5cff
+            );
+            font-size: 15px;
+            font-weight: 700;
+            transition: .2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            display: none;
+            margin-top: 24px;
+        }
+
+        .video-card {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 20px;
+        }
+
+        .thumbnail {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            border-radius: 14px;
+            background: #050814;
+        }
+
+        .title {
+            margin: 0 0 10px;
+            font-size: 21px;
+            line-height: 1.4;
+        }
+
+        .description {
+            color: #9ca8c0;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 100px;
+            overflow: hidden;
+        }
+
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .tag {
+            padding: 7px 10px;
+            border-radius: 9px;
+            background: #182238;
+            color: #aebbd2;
+            font-size: 12px;
+        }
+
+        .download-area {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .progress-container {
+            display: none;
+        }
+
+        .progress-top {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #aebbd2;
+        }
+
+        .progress {
+            height: 10px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #111a2c;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(
+                90deg,
+                #4f8cff,
+                #7c5cff
+            );
+            transition: width .25s;
+        }
+
+        .download-button {
+            display: none;
+            margin-top: 18px;
+            text-align: center;
+            text-decoration: none;
+            padding: 15px 20px;
+            border-radius: 14px;
+            background: #ffffff;
+            color: #0b1020;
+            font-weight: 800;
+        }
+
+        .status {
+            margin-top: 16px;
+            color: #8f9bb2;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .error {
+            display: none;
+            margin-top: 16px;
+            padding: 13px;
+            border-radius: 12px;
+            background: rgba(255, 70, 70, .1);
+            border: 1px solid rgba(255, 70, 70, .2);
+            color: #ff9a9a;
+            font-size: 14px;
+        }
+
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #65718a;
+            font-size: 12px;
+        }
+
+        @media (max-width: 650px) {
+            .container {
+                padding: 35px 0;
+            }
+
+            .input-row {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .video-card {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 18px;
+                border-radius: 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <section class="hero">
+
+        <div class="logo">
+            VD
+        </div>
+
+        <h1>Video Downloader</h1>
+
+        <p class="subtitle">
+            動画URLを入力して情報を取得・保存
+        </p>
+
+    </section>
+
+    <main class="card">
+
+        <div class="input-row">
+
+            <input
+                id="url"
+                type="url"
+                placeholder="動画URLを入力..."
+                autocomplete="off"
+            >
+
+            <button
+                id="infoButton"
+                onclick="getInfo()"
+            >
+                情報を取得
+            </button>
+
+        </div>
+
+        <div
+            id="error"
+            class="error"
+        ></div>
+
+        <section
+            id="result"
+            class="result"
+        >
+
+            <div class="video-card">
+
+                <img
+                    id="thumbnail"
+                    class="thumbnail"
+                    alt="thumbnail"
+                >
+
+                <div>
+
+                    <h2
+                        id="title"
+                        class="title"
+                    ></h2>
+
+                    <p
+                        id="description"
+                        class="description"
+                    ></p>
+
+                    <div
+                        id="meta"
+                        class="meta"
+                    ></div>
+
+                </div>
+
+            </div>
+
+            <div class="download-area">
+
+                <button
+                    id="downloadButton"
+                    onclick="startDownload()"
+                >
+                    ダウンロード開始
+                </button>
+
+                <div
+                    id="progressContainer"
+                    class="progress-container"
+                >
+
+                    <div class="progress-top">
+
+                        <span id="progressStatus">
+                            ダウンロード中...
+                        </span>
+
+                        <span id="progressText">
+                            0%
+                        </span>
+
+                    </div>
+
+                    <div class="progress">
+
+                        <div
+                            id="progressBar"
+                            class="progress-bar"
+                        ></div>
+
+                    </div>
+
+                    <div
+                        id="status"
+                        class="status"
+                    >
+                        準備中...
+                    </div>
+
+                    <a
+                        id="downloadLink"
+                        class="download-button"
+                    >
+                        ファイルを保存
+                    </a>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer>
+        Download only content you have permission to download.
+    </footer>
+
+</div>
+
+<script>
+    let currentUrl = "";
+    let currentJobId = null;
+    let pollingTimer = null;
+
+
+    function showError(message) {
+        const error = document.getElementById("error");
+
+        error.textContent = message;
+        error.style.display = "block";
+    }
+
+
+    function hideError() {
+        const error = document.getElementById("error");
+
+        error.style.display = "none";
+        error.textContent = "";
+    }
+
+
+    async function getInfo() {
+
+        const input =
+            document.getElementById("url");
+
+        const button =
+            document.getElementById("infoButton");
+
+        const url =
+            input.value.trim();
+
+        if (!url) {
+            showError("URLを入力してください。");
+            return;
+        }
+
+        hideError();
+
+        button.disabled = true;
+        button.textContent = "取得中...";
+
+        document
+            .getElementById("result")
+            .style.display = "none";
+
+        try {
+
+            const response =
+                await fetch("/api/info", {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        url: url
+                    })
+                });
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail || "情報の取得に失敗しました。"
+                );
+            }
+
+            currentUrl = url;
+
+            showVideoInfo(data);
+
+        } catch (error) {
+
+            showError(
+                error.message ||
+                "エラーが発生しました。"
+            );
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "情報を取得";
+        }
+    }
+
+
+    function showVideoInfo(data) {
+
+        document.getElementById("result")
+            .style.display = "block";
+
+        document.getElementById("title")
+            .textContent =
+            data.title || "タイトル不明";
+
+        document.getElementById("description")
+            .textContent =
+            data.description || "説明なし";
+
+        const thumbnail =
+            document.getElementById("thumbnail");
+
+        if (data.thumbnail) {
+
+            thumbnail.src =
+                data.thumbnail;
+
+            thumbnail.style.display =
+                "block";
+
+        } else {
+
+            thumbnail.style.display =
+                "none";
+        }
+
+        const meta =
+            document.getElementById("meta");
+
+        meta.innerHTML = "";
+
+        if (data.uploader) {
+            addTag(
+                meta,
+                "投稿者: " + data.uploader
+            );
+        }
+
+        if (data.duration) {
+            addTag(
+                meta,
+                "長さ: " +
+                formatDuration(data.duration)
+            );
+        }
+
+        if (data.view_count != null) {
+            addTag(
+                meta,
+                "再生数: " +
+                Number(data.view_count)
+                    .toLocaleString()
+            );
+        }
+
+        const downloadButton =
+            document.getElementById(
+                "downloadButton"
+            );
+
+        downloadButton.style.display =
+            "inline-block";
+
+        resetProgress();
+    }
+
+
+    function addTag(parent, text) {
+
+        const element =
+            document.createElement("span");
+
+        element.className = "tag";
+        element.textContent = text;
+
+        parent.appendChild(element);
+    }
+
+
+    function formatDuration(seconds) {
+
+        seconds =
+            Number(seconds);
+
+        if (!Number.isFinite(seconds)) {
+            return "--:--";
+        }
+
+        const hours =
+            Math.floor(seconds / 3600);
+
+        const minutes =
+            Math.floor(
+                (seconds % 3600) / 60
+            );
+
+        const secs =
+            Math.floor(seconds % 60);
+
+        if (hours > 0) {
+
+            return (
+                hours + ":" +
+                String(minutes).padStart(2, "0") +
+                ":" +
+                String(secs).padStart(2, "0")
+            );
+        }
+
+        return (
+            String(minutes).padStart(2, "0") +
+            ":" +
+            String(secs).padStart(2, "0")
+        );
+    }
+
+
+    async function startDownload() {
+
+        if (!currentUrl) {
+            showError(
+                "先に動画情報を取得してください。"
+            );
+            return;
+        }
+
+        hideError();
+
+        const button =
+            document.getElementById(
+                "downloadButton"
+            );
+
+        button.disabled = true;
+        button.textContent = "開始しています...";
+
+        try {
+
+            const response =
+                await fetch("/api/download", {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        url: currentUrl
+                    })
+                });
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    "ダウンロードを開始できませんでした。"
+                );
+            }
+
+            currentJobId = data.id;
+
+            document
+                .getElementById(
+                    "progressContainer"
+                )
+                .style.display = "block";
+
+            button.style.display = "none";
+
+            pollStatus();
+
+        } catch (error) {
+
+            showError(
+                error.message ||
+                "エラーが発生しました。"
+            );
+
+            button.disabled = false;
+            button.textContent =
+                "ダウンロード開始";
+        }
+    }
+
+
+    async function pollStatus() {
+
+        if (!currentJobId) {
+            return;
+        }
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/status/" +
+                    encodeURIComponent(
+                        currentJobId
+                    )
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    "ステータス取得失敗"
+                );
+            }
+
+            updateProgress(data);
+
+            if (
+                data.status ===
+                "completed"
+            ) {
+
+                clearTimeout(
+                    pollingTimer
+                );
+
+                const link =
+                    document.getElementById(
+                        "downloadLink"
+                    );
+
+                link.href =
+                    data.download_url;
+
+                link.style.display =
+                    "block";
+
+                return;
+            }
+
+            if (
+                data.status ===
+                "error"
+            ) {
+
+                clearTimeout(
+                    pollingTimer
+                );
+
+                showError(
+                    data.error ||
+                    "ダウンロードに失敗しました。"
+                );
+
+                return;
+            }
+
+            pollingTimer =
+                setTimeout(
+                    pollStatus,
+                    1000
+                );
+
+        } catch (error) {
+
+            showError(
+                error.message ||
+                "ステータス確認に失敗しました。"
+            );
+        }
+    }
+
+
+    function updateProgress(data) {
+
+        const progress =
+            Number(data.progress || 0);
+
+        document.getElementById(
+            "progressBar"
+        ).style.width =
+            progress + "%";
+
+        document.getElementById(
+            "progressText"
+        ).textContent =
+            progress + "%";
+
+        const status =
+            document.getElementById(
+                "status"
+            );
+
+        const statusText = {
+            queued: "待機中...",
+            downloading: "ダウンロード中...",
+            processing: "ファイルを処理中...",
+            completed: "完了しました！",
+            error: "エラー"
+        };
+
+        status.textContent =
+            statusText[data.status] ||
+            data.status;
+    }
+
+
+    function resetProgress() {
+
+        clearTimeout(
+            pollingTimer
+        );
+
+        currentJobId = null;
+
+        document.getElementById(
+            "progressContainer"
+        ).style.display = "none";
+
+        document.getElementById(
+            "progressBar"
+        ).style.width = "0%";
+
+        document.getElementById(
+            "progressText"
+        ).textContent = "0%";
+
+        document.getElementById(
+            "downloadLink"
+        ).style.display = "none";
+    }
+
+
+    document
+        .getElementById("url")
+        .addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key === "Enter"
+                ) {
+                    getInfo();
+                }
+            }
+        );
+</script>
+
+</body>
+</html>
